@@ -1,0 +1,167 @@
+---
+title: "Combining Vector and Raster Datasets"
+author: "Syed Faraz Ali"
+date: "10/09/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Creating rasters from vector layers 
+
+Generating new insight by overlaying several layers of spatial information, one
+on top of the other, constitutes one of the main concepts of spatial data analysis. Combining them in a single analysis is often desired.
+
+In this tutorial, we'll cover the following topics:
+
+* Creating rasters from vector layers and vice versa
+* Masking rasters with vector layers
+* Extracting raster values according to vector layers
+
+
+# Creating rasters from vector layers 
+
+To do this, we use the rasterize function 
+
+## Rasterizing vector layers 
+
+* Given a vector layer and a raster grid, the new raster cells get filled with values in places where the raster overlaps with the vector layer. 
+* The rest of the raster cells (those that are not in contact with the vector layer) are left with NA. 
+* Those raster cells that overlap with an individual feature in the vector layer are assigned unique values. 
+
+
+This will get clear from the following example:
+
+Reading the helper files first 
+```{r message= FALSE}
+source("~/codes/credit_risk_product/utils.R")
+source("~/codes/credit_risk_product/settings.R")
+import_libraries()
+```
+
+# Reading rasters layer 
+
+```{r cache = TRUE }
+rast1 <- raster("~/data/2017/NDVI/ndvi_20171015_agmask_clipped.tif")
+print(rast1)
+plot(rast1)
+```
+
+
+# Reading the vector layer (mandal shapefile)
+
+```{r cache=TRUE}
+amal <- readOGR("~/data/SHP/Amadalavalasa.geojson")
+print(amal)
+plot(amal)
+```
+
+# Reprojecting the vector layer to same CRS as the raster layer 
+
+```{r}
+amal <- spTransform(amal, CRS(proj4string(rast1)))
+```
+
+# Plotting the raster and vector layers on the same plot
+
+```{r cache = TRUE }
+plot(rast1)
+plot(amal, border = "yellow", lwd = 5, add = TRUE)
+```
+
+Now it is better if we first crop the raster as per the mandal extent and then plot them 
+
+```{r cache = TRUE}
+rast1 <- crop(rast1, amal)
+plot(rast1)
+plot(amal, border = "yellow", lwd = 5, add = TRUE)
+```
+
+
+## Rasterizing the vector layer 
+
+Since we have one polygon layer, our result is going to be a raster with the raster cells inside the polygon layer having a non-NA value and outside the polygon layer, it'll be NA
+
+The rasterize() function requires two main arguments:
+
+
+* The vector layer to rasterize(x)
+* The raster defining the grid(y)
+
+Note that the role of y is ONLY to provide a raster grid definition; its values DO NOT participate in the operation in any way. 
+
+Now, rasterizing 
+
+```{r cache = TRUE}
+amal_r <- rasterize(amal, rast1)
+print(amal_r)
+plot(amal_r)
+
+```
+
+
+All the cells in side the polygon layer are filled with NA
+
+Now if we compare raster rast1 and the rasterized vector amal_r, we can see that they have the same number of rows and columns( hence the number of cells as well), also their extents are also same 
+```{r}
+print(amal_r)
+print(rast1)
+```
+
+# Masking values in a raster 
+
+An important point to note before we start this discussion: Rasters are always rectangular. However in raster subsetting, we are often interested in going beyond the selection of ractangular extents
+
+Non-rectangular rasters can be created by assigning all cells, excluding those we are interested in, with NA. 
+
+This operation is called masking, again in the raster package terminology.
+
+Masking is most often performed using a polygonal layer defning an area of interest. Therefore, conceptually, masking can be viewed as a two-step operation. 
+
+* The  first step consists of a vector-to-raster conversion, where the area of interest is rasterized according to the raster we would like to mask. 
+
+* The second step consists of an overlay to construct the masked raster, with NA in those cells where the area-of-interest raster has NA or the original value otherwise. 
+
+In practice, the operation may be performed with a single step, using the mask function.
+
+
+This will be made clear with the following example:
+
+We want to find the raster corresponding to the amal shapefile (NOT the amal extent). We will mask the raster rast1 with the polygonal layer of mandal Amadalavasala. 
+
+We already have the cropped raster(as per the mandal shapefile extent)
+
+```{r}
+plot(rast1)
+plot(amal, border = "yellow", lwd = 5, add = TRUE)
+
+```
+
+The mask function that we will use expects two main arguments:
+
+* The raster to be masked (x)
+
+* The object determining which values to mask(mask)
+
+
+### IMPORTANT : The mask argument can either be an overlapping raster (in which case the values in x corresponding to NA in mask are assigned with NA) or a vector layer (in which case the values in x not coinciding with any features in mask are assigned with NA)
+
+NOTE: masking is quite compute intensive, so we will be caching those chunks which involve masking of rasters by another raster or vector layer 
+```{r cache = TRUE}
+rast1_mask <- mask(rast1, amal)
+plot(rast1_mask)
+```
+
+### We can also mask the raster rast1_mask with another raster (maize_raster) to further filter the values corresponding to the maize pixels.
+
+### But first we will have to resample the maize raster as per rast1_masked 
+
+
+NOTE: We will cache 
+
+
+
+
+
+
+
